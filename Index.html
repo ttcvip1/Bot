@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTT Signal Bot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #ffffff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #28a745;
+            color: #ffffff;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TTT Signal Bot</h1>
+        <form id="signalForm">
+            <label for="tttId">TTT ID:</label>
+            <input type="text" id="tttId" name="tttId" required placeholder="Enter your TTT ID">
+            
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required placeholder="Enter your password">
+            
+            <label for="asset">Asset Pairs (comma-separated):</label>
+            <input type="text" id="asset" name="asset" placeholder="e.g., USDBDT-OTC, USDEGP-OTC">
+            
+            <label for="startTime">Start Time:</label>
+            <input type="time" id="startTime" name="startTime">
+            
+            <label for="endTime">End Time:</label>
+            <input type="time" id="endTime" name="endTime">
+            
+            <label for="days">Filtering Days:</label>
+            <input type="number" id="days" name="days" placeholder="Default: 5" min="1">
+            
+            <button type="button" onclick="sendRequest()">Get Signals</button>
+        </form>
+        <div id="response" style="margin-top: 20px;"></div>
+    </div>
+
+    <script>
+        const botToken = "8148268039:AAGXPsYkhlAXxnDZXZKvZ1k0l_qwc98uLdg"; // Your Telegram Bot Token
+        const apiUrl = "https://alltradingapi.com/signal_list_gen/qx_signal.js"; // Your API URL
+
+        function sendRequest() {
+            const tttId = document.getElementById("tttId").value;
+            const password = document.getElementById("password").value;
+            const asset = document.getElementById("asset").value || "USDBDT-OTC";
+            const startTime = document.getElementById("startTime").value || "09:00";
+            const endTime = document.getElementById("endTime").value || "18:00";
+            const days = document.getElementById("days").value || "5";
+
+            // Validate inputs
+            if (!tttId || !password) {
+                document.getElementById("response").innerHTML = "<p style='color:red;'>Please fill in all required fields.</p>";
+                return;
+            }
+
+            // Prepare API parameters
+            const params = {
+                start_time: startTime,
+                end_time: endTime,
+                days: days,
+                pairs: asset.replace(/\s/g, ""),
+                mode: "normal",
+                min_percentage: "90",
+                filter: "q",
+                separate: "1"
+            };
+
+            // Fetch signals from your API
+            fetch(apiUrl, {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+                params: JSON.stringify(params)
+            })
+            .then(response => response.text())
+            .then(rawData => {
+                // Format signals
+                const formattedSignals = rawData.split("\n").map(line => {
+                    const parts = line.split("～");
+                    if (parts.length === 4) {
+                        const time = parts[2].trim();
+                        const pair = parts[1].replace("_otc", "-OTC").trim();
+                        const action = parts[3].trim().toUpperCase();
+                        return `${time} ➤ ${pair} ➤ ${action}`;
+                    }
+                    return null;
+                }).filter(Boolean).join("\n");
+
+                // Send the formatted signals to Telegram
+                const chatId = update.message.chat.id; // Replace with a valid chat ID
+                const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+                fetch(telegramUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        chat_id: chatId,
+                        text: `<b>TTT Signal Bot</b>\n\n${formattedSignals}`,
+                        parse_mode: "HTML"
+                    })
+                })
+                .then(() => {
+                    document.getElementById("response").innerHTML = `
+                        <p style="color:green;">Signals sent successfully to Telegram!</p>
+                        <pre>${formattedSignals}</pre>
+                    `;
+                })
+                .catch(err => {
+                    console.error("Telegram Error:", err);
+                    document.getElementById("response").innerHTML = "<p style='color:red;'>Error sending signals to Telegram.</p>";
+                });
+            })
+            .catch(err => {
+                console.error("API Error:", err);
+                document.getElementById("response").innerHTML = "<p style='color:red;'>Error fetching signals from the API.</p>";
+            });
+        }
+    </script>
+</body>
+</html>
